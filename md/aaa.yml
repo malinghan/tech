@@ -1,0 +1,65 @@
+################################################################################
+# docker-compose -f docker-compose-2024.yml -p 2024 up -d
+################################################################################
+version: "3.7"
+
+services:
+  # mysql
+  mysql:
+    # 镜像名
+    image: mysql:8.0.26
+    privileged: true
+    # 给容器取个名字
+    container_name: mysql
+    restart: unless-stopped  # restart参数 (重启策略) docker常用命令中有说明
+    # 配置文件有了就不用了
+    command: --default-authentication-plugin=mysql_native_password
+    # 端口映射 宿主:容器
+    ports:
+      - "20241:3306"
+    # 映射数据卷 宿主:容器 （只是临时测试可以不用挂载）
+    volumes:
+      - ./mysql/logs:/var/log/mysql
+      - ./mysql/data:/var/lib/mysql
+      #      - ./mysql/conf:/etc/mysql/conf.d
+      - ./mysql/mysql-files:/var/lib/mysql-files
+      - ./mysql/init:/docker-entrypoint-initdb.d/
+    # 设置环境变量,相当于docker run命令中的-e
+    environment:
+      TZ: 'Asia/Shanghai'  # 设置容器时区
+      LANG: 'en_US.UTF-8'
+      MYSQL_ROOT_PASSWORD: 'root'         # 设置root用户密码
+      MYSQL_ALLOW_EMPTY_PASSWORD: 'no' # 即不允许密码为空。
+      MYSQL_DATABASE: 'test'  # 新建数据库
+      MYSQL_USER: 'tan' # 新增用户
+      MYSQL_PASSWORD: 'tan' # 新增用户的密码
+
+  # zookeeper https://hub.docker.com/_/zookeeper
+  zookeeper:
+    image: zookeeper:3.9.1
+    container_name: zookeeper
+    restart: unless-stopped
+    volumes:
+      - ./zookeeper/data:/data # 数据库快照
+      - ./zookeeper/datalog:/datalog # 数据库更新的事务日志
+    #      - ./zookeeper/zoo.cfg:/conf/zoo.cfg # Configuration 配置
+    ports:
+      - "20242:2181" # 客户端端口
+    environment:
+      ZOO_INIT_LIMIT: 10  # 默认为 5 允许关注者连接并同步到领导者的时间量
+  #      ZOO_SYNC_LIMIT: 2  # 默认为 2 允许关注者与 ZooKeeper 同步的时间量
+  #      ZOO_TICK_TIME: 2000  # 默认为 2000毫秒 调节检测信号和超时
+
+  # zookeeper 可视化界面
+  zookeeper-webui:
+    image: tobilg/zookeeper-webui
+    container_name: zookeeper-webui
+    restart: unless-stopped
+    environment:
+      ZK_DEFAULT_NODE: zookeeper:2181
+    depends_on:
+      - zookeeper
+    links:
+      - zookeeper
+    ports:
+      - "20243:8080"
